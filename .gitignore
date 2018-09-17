@@ -16,5 +16,5 @@
 .env
 dist/
 tmp
-packaged-template.yaml
-scratch
+packaged-tpl.yaml
+scratch*
