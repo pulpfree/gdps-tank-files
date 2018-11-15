@@ -86,3 +86,7 @@ Resources:
             Action:
             - s3:*
             Resource: arn:aws:s3:::gdps-tank-files-srcbucket-1b4usmv6ms16v/*
+          - Effect: Allow
+            Action:
+            - s3:*
+            Resource: arn:aws:s3:::ca-gales/tankFiles/*

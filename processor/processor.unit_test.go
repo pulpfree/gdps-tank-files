@@ -15,7 +15,7 @@ import (
 const (
 	bucket           = "gdps-tank-files-srcbucket-1b4usmv6ms16v"
 	defaultsFilePath = "../config/defaults.yaml"
-	objKey           = "tankFile_20.csv"
+	objKey           = "tankFile_99.csv"
 )
 
 // UnitSuite struct
@@ -50,7 +50,7 @@ func (suite *UnitSuite) TestConfig() {
 func (suite *UnitSuite) TestExtractTankID() {
 	err := suite.p.extractTankID()
 	suite.NoError(err)
-	suite.Equal("20", suite.p.tankID, "Expect tankID to match")
+	suite.Equal("99", suite.p.tankID, "Expect tankID to match")
 
 	suite.p.input.Key = aws.String("phonyname.jpg")
 	err = suite.p.extractTankID()
@@ -94,6 +94,18 @@ func (suite *UnitSuite) TestRecordFailure() {
 	output, err := suite.p.recordFailure(e.Error())
 	suite.NoError(err)
 	suite.Equal(*output.Attributes["Status"].S, dynamo.ERROR)
+}
+
+// TestCleanUpS3 method
+func (suite *UnitSuite) TestCleanUpS3() {
+	suite.p.input = &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(objKey),
+	}
+	_ = suite.p.extractTankID()
+
+	err := suite.p.cleanUpS3()
+	suite.NoError(err)
 }
 
 // TestUnitSuite function

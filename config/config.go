@@ -6,11 +6,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -28,7 +23,6 @@ type defaults struct {
 	S3FilePrefix     string `yaml:"S3FilePrefix"`
 	DynamoAPIVersion string `yaml:"DynamoAPIVersion"`
 	DynamoRegion     string `yaml:"DynamoRegion"`
-	SsmPath          string `yaml:"SsmPath"`
 	Stage            string `yaml:"Stage"`
 }
 
@@ -74,10 +68,6 @@ func (c *Config) Load() (err error) {
 	if err != nil {
 		return err
 	}
-	/*err = c.setSSMParams()
-	if err != nil {
-		return err
-	}*/
 	err = c.setDynamo()
 	if err != nil {
 		return err
@@ -87,7 +77,6 @@ func (c *Config) Load() (err error) {
 		return err
 	}
 
-	// c.setDBConnectURL()
 	return err
 }
 
@@ -163,46 +152,6 @@ func (c *Config) setEnvVars() (err error) {
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	return err
-}
-
-func (c *Config) setSSMParams() (err error) {
-
-	s := []string{"", string(c.GetStageEnv()), defs.SsmPath}
-	paramPath := aws.String(strings.Join(s, "/"))
-
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(defs.AWSRegion),
-	})
-	if err != nil {
-		return err
-	}
-
-	svc := ssm.New(sess)
-	res, err := svc.GetParametersByPath(&ssm.GetParametersByPathInput{
-		Path:           paramPath,
-		WithDecryption: aws.Bool(true),
-	})
-	if err != nil {
-		return err
-	}
-
-	paramLen := len(res.Parameters)
-	if paramLen == 0 {
-		// err = fmt.Errorf("Error fetching ssm params, total number found: %d", paramLen)
-		return nil
-	}
-
-	// Get struct keys so we can test before attempting to set
-	t := reflect.ValueOf(defs).Elem()
-	for _, r := range res.Parameters {
-		paramName := strings.Split(*r.Name, "/")[3]
-		structKey := t.FieldByName(paramName)
-		if structKey.IsValid() {
-			structKey.Set(reflect.ValueOf(*r.Value))
 		}
 	}
 

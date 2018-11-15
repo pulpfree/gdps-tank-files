@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -82,6 +83,12 @@ func (p *Processor) ProcessFile(input *s3.GetObjectInput) (err error) {
 		return err
 	}
 
+	err = p.cleanUpS3()
+	if err != nil {
+		log.Errorf("failed to clean up s3: %s", err)
+		return err
+	}
+
 	log.Infof("Processed tank id: %s", p.tankID)
 
 	return err
@@ -144,4 +151,44 @@ func (p *Processor) persistLevels() (output *dynamodb.UpdateItemOutput, err erro
 func (p *Processor) recordFailure(errStr string) (output *dynamodb.UpdateItemOutput, err error) {
 	output, err = p.db.UpdateWithError(errStr, p.tankID)
 	return output, err
+}
+
+// cleanUpS3
+func (p *Processor) cleanUpS3() (err error) {
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(p.cfg.AWSRegion)},
+	)
+	if err != nil {
+		log.Errorf("failed to create aws session: %s", err.Error())
+		return err
+	}
+	svc := s3.New(sess)
+
+	// t := time.Now()
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+
+	origKey := *p.input.Key
+	origBucket := *p.input.Bucket
+	source := origBucket + "/" + origKey
+	newKey := p.cfg.S3FilePrefix + "/" + ts + "_" + p.tankID + ".csv" // Add timestamp to file
+
+	_, err = svc.CopyObject(&s3.CopyObjectInput{
+		Bucket:     aws.String(p.cfg.S3Bucket),
+		CopySource: aws.String(source),
+		Key:        aws.String(newKey),
+	})
+	if err != nil {
+		log.Errorf("Unable to copy item from bucket %q to bucket %q, %v", source, p.cfg.S3Bucket, err)
+		return err
+	}
+
+	// Now delete source file
+	_, err = svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(origBucket), Key: aws.String(origKey)})
+	if err != nil {
+		log.Errorf("Unable to delete object %q from bucket %q, %v", origKey, origBucket, err)
+		return err
+	}
+
+	return err
 }
